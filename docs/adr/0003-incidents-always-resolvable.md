@@ -1,0 +1,3 @@
+# Incidents are always resolvable: no soft-locks
+
+Progression must never dead-end. Every Incident has a Stash guaranteeing its resolver (a grenade by each dumpster fire, a shell box by each printer) even if the player wastes their carried inventory; Keycards open only optional Side Rooms, never the main path or an Exit Door; each Level is self-sufficient in pickups. We deliberately rejected 90's-style cruelty (wasted ammo = restart the Level) as rage-quit bait for a 10-minute prototype. A future "cleanup" that removes the redundant Stash pickups or gates a door behind a Keycard breaks this invariant.
