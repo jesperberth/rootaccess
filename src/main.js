@@ -77,13 +77,17 @@ const keys = new Set();
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   keys.add(e.code);
+  if (document.pointerLockElement !== canvas) return;
   if (e.code === 'KeyE') {
     handleEvents(game.dispatch({ type: 'pickup' }).events);
   } else if (e.code === 'KeyF') {
-    handleEvents(
-      game.dispatch({ type: 'use', tool: 'mcnorton', target: aimIncident() })
-        .events,
-    );
+    // F uses whatever Tool the player carries; the sim decides what it does.
+    const tool = game.state.inventory.tools[0];
+    if (tool) {
+      handleEvents(
+        game.dispatch({ type: 'use', tool, target: aimIncident() }).events,
+      );
+    }
   }
 });
 document.addEventListener('keyup', (e) => keys.delete(e.code));
@@ -114,9 +118,9 @@ function frame() {
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
 
-  // Fault lights blink red while unresolved, sit green once resolved.
+  // Incident indicators blink red while unresolved, sit green once resolved.
   const elapsed = clock.elapsedTime;
-  for (const [id, light] of Object.entries(scene.userData.faultLights)) {
+  for (const [id, light] of Object.entries(scene.userData.incidentLights)) {
     const resolved = game.state.incidents[id].resolved;
     light.material.color.setHex(resolved ? 0x00c000 : 0xff2200);
     light.visible = resolved || Math.floor(elapsed * 4) % 2 === 0;

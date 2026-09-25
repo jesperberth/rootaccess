@@ -14,7 +14,7 @@ const KIND_COLORS = {
 export function buildScene(levelSpec) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
-  scene.userData = { incidents: {}, pickups: {}, faultLights: {} };
+  scene.userData = { incidents: {}, pickups: {}, incidentLights: {} };
   const { width, depth, height } = levelSpec.room;
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -64,7 +64,7 @@ export function buildScene(levelSpec) {
     mesh.position.set(obstacle.x, obstacle.h / 2, obstacle.z);
     scene.add(mesh);
 
-    // An Incident sharing this obstacle's id gets a flashing fault light and
+    // An Incident sharing this obstacle's id gets a blinking indicator and
     // a userData tag so the input adapter can raycast it.
     const incident = (levelSpec.incidents ?? []).find(
       (entry) => entry.id === obstacle.id,
@@ -77,8 +77,9 @@ export function buildScene(levelSpec) {
         new THREE.MeshBasicMaterial({ color: 0xff2200 }),
       );
       light.position.set(obstacle.x, obstacle.h + 0.1, obstacle.z);
+      light.userData.incidentId = incident.id; // aiming at the light still counts
       scene.add(light);
-      scene.userData.faultLights[incident.id] = light;
+      scene.userData.incidentLights[incident.id] = light;
     }
   }
 

@@ -27,13 +27,13 @@ export const OFFICE = {
     // A potted plant in the corner.
     { id: 'plant-1', kind: 'plant', x: -6.5, z: -4, w: 0.7, d: 0.7, h: 1.2 },
   ],
-  // Incidents: the office is broken, and each fault has exactly one correct
-  // resolver (see RESOLVERS in the simulation). The printer fault shares its
-  // position with the printer-1 obstacle.
+  // Incidents: the office is broken, and each Incident has exactly one
+  // correct resolver (see RESOLVERS in the simulation). The printer Incident
+  // shares its position with the printer-1 obstacle.
   incidents: [
     { id: 'printer-1', type: 'jammed-printer', x: 6, z: 0 },
   ],
-  // McNorton, left on a desk like every other office treasure.
+  // McNorton, left on a desk: the player's first Tool.
   pickups: [
     { id: 'mcnorton-1', kind: 'mcnorton', x: -2, z: -2.2 },
   ],

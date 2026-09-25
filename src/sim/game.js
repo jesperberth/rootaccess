@@ -133,12 +133,17 @@ export function createGame(levelSpec) {
       }
       case 'pickup': {
         const { x, z } = state.player;
-        const reach = levelSpec.player.interactRange;
-        const candidate = (levelSpec.pickups ?? []).find(
-          (pickup) =>
-            !state.pickups[pickup.id].collected &&
-            Math.hypot(pickup.x - x, pickup.z - z) <= reach,
-        );
+        // Nearest in-reach uncollected Pickup wins.
+        let candidate;
+        let best = Infinity;
+        for (const pickup of levelSpec.pickups ?? []) {
+          if (state.pickups[pickup.id].collected) continue;
+          const d = Math.hypot(pickup.x - x, pickup.z - z);
+          if (d <= levelSpec.player.interactRange && d < best) {
+            candidate = pickup;
+            best = d;
+          }
+        }
         if (!candidate) return { state, events: [] };
         state.pickups[candidate.id].collected = true;
         if (candidate.kind === 'mcnorton') state.inventory.tools.push('mcnorton');
@@ -150,6 +155,9 @@ export function createGame(levelSpec) {
         };
       }
       case 'fire': {
+        if (!state.inventory.weapons.includes('shotgun')) {
+          return { state, events: [] };
+        }
         const incident = action.target && findIncident(action.target);
         if (!incident) return { state, events: [] };
         return attemptResolve(incident, 'shotgun', levelSpec.player.fireRange);
