@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { createGame } from './sim/game.js';
 import { buildScene } from './render/scene.js';
+import { createQuipSystem } from './render/quip.js';
+import { createHud } from './render/hud.js';
 import { OFFICE } from './level/office.js';
 
 const game = createGame(OFFICE);
@@ -15,6 +17,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = buildScene(level);
+const quips = createQuipSystem(scene);
+const hud = createHud();
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
@@ -23,11 +27,38 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.rotation.order = 'YXZ';
 
+// --- Targeting: whatever the crosshair is on, if it is an Incident ---
+const raycaster = new THREE.Raycaster();
+const crosshairNdc = new THREE.Vector2(0, 0);
+
+function aimIncident() {
+  raycaster.setFromCamera(crosshairNdc, camera);
+  for (const hit of raycaster.intersectObjects(scene.children, true)) {
+    if (hit.object.isSprite) continue; // Quip bubbles never block a shot
+    return hit.object.userData.incidentId ?? null;
+  }
+  return null;
+}
+
+function handleEvents(events) {
+  for (const event of events) {
+    if (event.type === 'Quip') {
+      quips.show(event.text, scene.userData.incidents[event.incident].position);
+    } else if (event.type === 'PickupCollected') {
+      scene.remove(scene.userData.pickups[event.pickup]);
+    }
+  }
+}
+
 // --- Input: pointer lock mouse-look ---
 const LOOK_SENSITIVITY = 0.0022;
 
 document.addEventListener('click', () => {
-  if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+  if (document.pointerLockElement !== canvas) {
+    canvas.requestPointerLock();
+    return;
+  }
+  handleEvents(game.dispatch({ type: 'fire', target: aimIncident() }).events);
 });
 document.addEventListener('pointerlockchange', () => {
   overlay.classList.toggle('hidden', document.pointerLockElement === canvas);
@@ -41,9 +72,20 @@ document.addEventListener('mousemove', (e) => {
   });
 });
 
-// --- Input: WASD ---
+// --- Input: WASD + interact keys ---
 const keys = new Set();
-document.addEventListener('keydown', (e) => keys.add(e.code));
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  keys.add(e.code);
+  if (e.code === 'KeyE') {
+    handleEvents(game.dispatch({ type: 'pickup' }).events);
+  } else if (e.code === 'KeyF') {
+    handleEvents(
+      game.dispatch({ type: 'use', tool: 'mcnorton', target: aimIncident() })
+        .events,
+    );
+  }
+});
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 
 function moveIntent() {
@@ -71,6 +113,17 @@ function frame() {
   camera.position.set(x, level.player.eyeHeight, z);
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
+
+  // Fault lights blink red while unresolved, sit green once resolved.
+  const elapsed = clock.elapsedTime;
+  for (const [id, light] of Object.entries(scene.userData.faultLights)) {
+    const resolved = game.state.incidents[id].resolved;
+    light.material.color.setHex(resolved ? 0x00c000 : 0xff2200);
+    light.visible = resolved || Math.floor(elapsed * 4) % 2 === 0;
+  }
+
+  quips.update(dt);
+  hud.update(game.state);
   renderer.render(scene, camera);
 }
 

@@ -5,7 +5,7 @@ export const OFFICE = {
   name: 'Open Plan Office',
   room: { width: 14, depth: 10, height: 2.8 },
   playerStart: { x: 0, z: 3.5, yaw: 0, pitch: 0 },
-  player: { radius: 0.3, eyeHeight: 1.6, speed: 3 },
+  player: { radius: 0.3, eyeHeight: 1.6, speed: 3, interactRange: 1.5, fireRange: 6 },
   obstacles: [
     // A row of desks facing the north wall.
     { id: 'desk-1', kind: 'desk', x: -4.5, z: -3, w: 1.6, d: 0.8, h: 0.75 },
@@ -26,5 +26,15 @@ export const OFFICE = {
     { id: 'cabinet-2', kind: 'cabinet', x: 6.5, z: 3.5, w: 1, d: 0.5, h: 1.4 },
     // A potted plant in the corner.
     { id: 'plant-1', kind: 'plant', x: -6.5, z: -4, w: 0.7, d: 0.7, h: 1.2 },
+  ],
+  // Incidents: the office is broken, and each fault has exactly one correct
+  // resolver (see RESOLVERS in the simulation). The printer fault shares its
+  // position with the printer-1 obstacle.
+  incidents: [
+    { id: 'printer-1', type: 'jammed-printer', x: 6, z: 0 },
+  ],
+  // McNorton, left on a desk like every other office treasure.
+  pickups: [
+    { id: 'mcnorton-1', kind: 'mcnorton', x: -2, z: -2.2 },
   ],
 };

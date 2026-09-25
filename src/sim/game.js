@@ -1,6 +1,47 @@
+// The one-to-one rule from CONTEXT.md: each Incident type is resolved by
+// exactly one Tool or Weapon. Anything else draws a Quip and changes nothing.
+export const RESOLVERS = {
+  'dumpster-fire': 'extinguisher-grenade',
+  'infected-pc': 'mcnorton',
+  'jammed-printer': 'shotgun',
+};
+
+// Mocking lines for the wrong resolver, keyed "incidentType:resolver".
+const QUIPS = {
+  'jammed-printer:mcnorton':
+    'Scan complete. The virus is a sheet of A4 stuck in tray two.',
+  'jammed-printer:extinguisher-grenade':
+    'The printer is not on fire. Legally, it is not on fire.',
+  'infected-pc:shotgun':
+    'Threat removed. The threat was the PC. Mostly the PC.',
+  'infected-pc:extinguisher-grenade':
+    'The PC is damp now. The virus is dry and unimpressed.',
+  'dumpster-fire:mcnorton':
+    'The dumpster is not a computer. Check your priorities.',
+  'dumpster-fire:shotgun':
+    'That was not a jam. That was burning. Now it is more burning.',
+};
+
+const GENERIC_QUIP = 'That is not how any of this works.';
+
 export function createGame(levelSpec) {
   const state = {
     player: { ...levelSpec.playerStart },
+    inventory: { weapons: ['shotgun'], tools: [] },
+    incidents: Object.fromEntries(
+      (levelSpec.incidents ?? []).map((incident) => [
+        incident.id,
+        { type: incident.type, resolved: false },
+      ]),
+    ),
+    pickups: Object.fromEntries(
+      (levelSpec.pickups ?? []).map((pickup) => [
+        pickup.id,
+        { kind: pickup.kind, collected: false },
+      ]),
+    ),
+    incidentsResolved: 0,
+    incidentsTotal: (levelSpec.incidents ?? []).length,
   };
   const radius = levelSpec.player.radius;
 
@@ -23,6 +64,38 @@ export function createGame(levelSpec) {
       const dz = z - nearestZ;
       return dx * dx + dz * dz < radius * radius;
     });
+  }
+
+  // Apply the resolver table to one attempt: correct resolver resolves the
+  // Incident, wrong resolver draws a Quip, anything else changes nothing.
+  function attemptResolve(incident, resolver, maxRange) {
+    if (state.incidents[incident.id].resolved) return { state, events: [] };
+    const { x, z } = state.player;
+    if (Math.hypot(incident.x - x, incident.z - z) > maxRange) {
+      return { state, events: [] };
+    }
+    if (RESOLVERS[incident.type] === resolver) {
+      state.incidents[incident.id].resolved = true;
+      state.incidentsResolved += 1;
+      return {
+        state,
+        events: [{ type: 'IncidentResolved', incident: incident.id, resolver }],
+      };
+    }
+    return {
+      state,
+      events: [
+        {
+          type: 'Quip',
+          incident: incident.id,
+          text: QUIPS[`${incident.type}:${resolver}`] ?? GENERIC_QUIP,
+        },
+      ],
+    };
+  }
+
+  function findIncident(id) {
+    return levelSpec.incidents?.find((entry) => entry.id === id);
   }
 
   function dispatch(action) {
@@ -57,6 +130,37 @@ export function createGame(levelSpec) {
         state.player.z = nz;
         const blocked = nx === x && nz === z && (dx !== 0 || dz !== 0);
         return { state, events: blocked ? [{ type: 'MoveBlocked' }] : [] };
+      }
+      case 'pickup': {
+        const { x, z } = state.player;
+        const reach = levelSpec.player.interactRange;
+        const candidate = (levelSpec.pickups ?? []).find(
+          (pickup) =>
+            !state.pickups[pickup.id].collected &&
+            Math.hypot(pickup.x - x, pickup.z - z) <= reach,
+        );
+        if (!candidate) return { state, events: [] };
+        state.pickups[candidate.id].collected = true;
+        if (candidate.kind === 'mcnorton') state.inventory.tools.push('mcnorton');
+        return {
+          state,
+          events: [
+            { type: 'PickupCollected', pickup: candidate.id, kind: candidate.kind },
+          ],
+        };
+      }
+      case 'fire': {
+        const incident = action.target && findIncident(action.target);
+        if (!incident) return { state, events: [] };
+        return attemptResolve(incident, 'shotgun', levelSpec.player.fireRange);
+      }
+      case 'use': {
+        if (!state.inventory.tools.includes(action.tool)) {
+          return { state, events: [] };
+        }
+        const incident = action.target && findIncident(action.target);
+        if (!incident) return { state, events: [] };
+        return attemptResolve(incident, action.tool, levelSpec.player.interactRange);
       }
       case 'look': {
         state.player.yaw += action.dyaw;

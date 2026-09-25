@@ -14,6 +14,7 @@ const KIND_COLORS = {
 export function buildScene(levelSpec) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
+  scene.userData = { incidents: {}, pickups: {}, faultLights: {} };
   const { width, depth, height } = levelSpec.room;
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -62,6 +63,44 @@ export function buildScene(levelSpec) {
     );
     mesh.position.set(obstacle.x, obstacle.h / 2, obstacle.z);
     scene.add(mesh);
+
+    // An Incident sharing this obstacle's id gets a flashing fault light and
+    // a userData tag so the input adapter can raycast it.
+    const incident = (levelSpec.incidents ?? []).find(
+      (entry) => entry.id === obstacle.id,
+    );
+    if (incident) {
+      mesh.userData.incidentId = incident.id;
+      scene.userData.incidents[incident.id] = mesh;
+      const light = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 0.12),
+        new THREE.MeshBasicMaterial({ color: 0xff2200 }),
+      );
+      light.position.set(obstacle.x, obstacle.h + 0.1, obstacle.z);
+      scene.add(light);
+      scene.userData.faultLights[incident.id] = light;
+    }
+  }
+
+  // Incidents that share no obstacle id still need a position for Quips.
+  for (const incident of levelSpec.incidents ?? []) {
+    if (!scene.userData.incidents[incident.id]) {
+      scene.userData.incidents[incident.id] = {
+        position: new THREE.Vector3(incident.x, 1, incident.z),
+      };
+    }
+  }
+
+  for (const pickup of levelSpec.pickups ?? []) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.25, 0.06),
+      new THREE.MeshLambertMaterial({ color: 0xd8d8f8 }),
+    );
+    mesh.position.set(pickup.x, pickup.y ?? 0.9, pickup.z);
+    mesh.rotation.y = Math.PI / 6; // lean it like a box left in a hurry
+    mesh.userData.pickupId = pickup.id;
+    scene.add(mesh);
+    scene.userData.pickups[pickup.id] = mesh;
   }
 
   return scene;
